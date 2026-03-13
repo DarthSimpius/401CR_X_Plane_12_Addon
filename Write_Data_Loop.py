@@ -61,7 +61,7 @@ def write_telemetry(shm, data: TelemetryCompat):
 #-------------------
 UDP_Port = 49001
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind("127.0.0.1", UDP_Port)
+sock.bind(("127.0.0.1", UDP_Port))
 #-------------------
 
 def main():
@@ -72,7 +72,7 @@ def main():
     while True:
         packet, addr = sock.recvfrom(2048)
 
-        if packet[0:5] != b"DATA\0":
+        if packet[0:4] != b"DATA":
             continue
         for offset in range(5, len(packet), 36):
             row = packet[offset:offset+36]
@@ -80,28 +80,31 @@ def main():
                 continue
             idx, *values = struct.unpack("<i8f", row)
 
-            if idx == 3:    # Pitch, Roll, Heading (degrees)
+            if idx == 17:    # Pitch, Roll, Heading (degrees)
                 # Multiply by 0.0174533 to convert degrees to radians
                 telemetry.Pitch = values[0] * 0.0174533
                 telemetry.Roll = values[1] * 0.0174533
                 telemetry.Yaw = values[2] * 0.0174533
-            elif idx == 16:  # Local velocities (m/s)
-                telemetry.VelocityX = values[0]
-                telemetry.VelocityY = values[1]
-                telemetry.VelocityZ = values[2]
+            elif idx == 21:  # Position (m) and Local velocities (m/s)
+                telemetry.PositionX = values[0]
+                telemetry.PositionY = values[1]
+                telemetry.PositionZ = values[2]
+                telemetry.VelocityX = values[3]
+                telemetry.VelocityY = values[4]
+                telemetry.VelocityZ = values[5]
 
-            elif idx == 17:  # Local accelerations (g)
-                telemetry.Lateral      = values[0]
-                telemetry.Longitudinal = values[1]
-                telemetry.Vertical     = values[2]
+            elif idx == 4:  # Local accelerations (g)
+                telemetry.Lateral      = values[6]
+                telemetry.Longitudinal = values[5]
+                telemetry.Vertical     = values[4]
 
-            elif idx == 20:  # Angular rates (deg/s)
+            elif idx == 16:  # Angular rates (deg/s)
                 # Multiply by 0.0174533 to convert degrees to radians
-                telemetry.SpinX = values[0] * 0.0174533
-                telemetry.SpinY = values[1] * 0.0174533
-                telemetry.SpinZ = values[2] * 0.0174533
+                telemetry.SpinX = values[1] * 0.0174533
+                telemetry.SpinY = values[0] * 0.0174533
+                telemetry.SpinZ = values[2] * 0.0174533 * -1
 
-            elif idx == 21:  # Engine RPM
+            elif idx == 99:  # Engine RPM
                 telemetry.RPM = values[0]
 
             elif idx == 37:  # Throttle, brake, gear
